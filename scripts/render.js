@@ -2,6 +2,7 @@ import calcPosFromLatLonRad from "./methods.js";
 
 
 let lastSelectedObject = null;
+let lastSelectedColor = 'yellow';
 
 var targetRotationX = 0.5;
 
@@ -27,6 +28,8 @@ let points = [];
 
 let moonObject;
 
+let jsonData;
+
 function init() {
 
     //Init scene
@@ -36,7 +39,7 @@ function init() {
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth * 0.6, window.innerHeight);
     document.getElementById('moon').appendChild(renderer.domElement);
-    camera.position.z = 100;
+    camera.position.z = 65;
     scene.background = new THREE.TextureLoader().load('assets/textures/stars.jpg');
 
 
@@ -87,29 +90,42 @@ function init() {
 init();
 
 async function getDotsFromJson() {
-    const response = await fetch("locations.json");
+    const response = await fetch("data.json");
+    //lista od site podatoci
     const json = await response.json();
+    jsonData = json;
 
     for (let item in json) {
-        if (json[item].Year < 1980) {
+        // if (json[item].Year < 1980) {
 
+        let latlon = [json[item].Lat, json[item].Long]
+        var geometryDot = new THREE.SphereGeometry(0.25, 20, 20)
+        var materialDot = new THREE.MeshBasicMaterial({
 
-            let latlon = [json[item].Lat, json[item].Long]
-            var geometryDot = new THREE.SphereGeometry(0.5, 20, 20)
-            var materialDot = new THREE.MeshBasicMaterial({
-
-                color: new THREE.Color('yellow')
-            })
-            var point = new THREE.Mesh(geometryDot, materialDot);
-            var latlonpoint = calcPosFromLatLonRad(latlon[0], latlon[1], 15);
-            point.position.set(latlonpoint[0], latlonpoint[1], latlonpoint[2]);
-            moonObject.add(point)
-            points.push(point)
+            color: new THREE.Color('yellow')
+        })
+        var point = new THREE.Mesh(geometryDot, materialDot);
+        point.name = json[item].id;
+        if (json[item].depth) {
+            materialDot.color = new THREE.Color('red')
         }
+        var latlonpoint = calcPosFromLatLonRad(latlon[0], latlon[1], 15);
+        point.position.set(latlonpoint[0], latlonpoint[1], latlonpoint[2]);
+        moonObject.add(point)
+        points.push(point)
+        // }
 
     }
 }
+function resetFields() {
+    document.getElementById('lat').innerHTML = "";
+    document.getElementById('long').innerHTML = "";
+    document.getElementById('type').innerHTML = "";
+    document.getElementById('depth').innerHTML = "";
+    document.getElementById('year').innerHTML = "";
+    document.getElementById('magnitude').innerHTML = "";
 
+}
 function onMouseMove(event) {
     var mouse = new THREE.Vector2();
     mouse.x = (event.clientX / (window.innerWidth * 0.6)) * 2 - 1;
@@ -118,22 +134,57 @@ function onMouseMove(event) {
     var raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, camera);
     var intersects = raycaster.intersectObjects(points);
+    //raycaster vrakja prazni points
     if (intersects.length > 0 && intersects[0].object.uuid != lastSelectedObject) {
         if (lastSelectedObject) {
             let point = points.find(el => el.uuid == lastSelectedObject);
-            point.material.color = new THREE.Color('yellow');
+            point.material.color = new THREE.Color(lastSelectedColor);
+            resetFields();
             lastSelectedObject = null;
         }
+        let idCurrent = intersects[0].object.name;
+        let currentData = jsonData.find(el => el.id == idCurrent);
+        console.log(currentData)
+        
+        
         intersects[0].object.material.color = new THREE.Color('white')
+        
         lastSelectedObject = intersects[0].object.uuid;
+        lastSelectedColor = 'yellow';
+        
+        document.getElementById('lat').innerHTML = currentData.Lat;
+        document.getElementById('long').innerHTML = currentData.Long;
+        if (currentData.depth) {
+            document.getElementById('depth').innerHTML = currentData.depth;
+            lastSelectedColor = 'red';
+        }
+        document.getElementById('type').innerHTML = currentData.type;
+        document.getElementById('year').innerHTML = currentData.Year;
+        if (currentData.Magnitude) {
+            document.getElementById('magnitude').innerHTML = currentData.Magnitude;
+        }
+
     }
     else if ((intersects.length == 0 && lastSelectedObject != null)) {
         let point = points.find(el => el.uuid == lastSelectedObject);
-        point.material.color = new THREE.Color('yellow');
+        ///
+        point.material.color = new THREE.Color(lastSelectedColor);
+        resetFields();
+        ///
         lastSelectedObject = null;
     }
 
 }
+
+document.getElementById('zIndexPlus').addEventListener('click', function (evt) {
+    console.log('changed')
+    camera.position.z = camera.position.z + 10;
+});
+
+document.getElementById('zIndexMinus').addEventListener('click', function (evt) {
+    console.log('changed')
+    camera.position.z = camera.position.z - 10;
+});
 
 
 
